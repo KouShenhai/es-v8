@@ -1,6 +1,8 @@
 package org.laokoutech.demoes8;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
@@ -34,13 +36,17 @@ class DemoEs8ApplicationTests {
     @Test
     void testCreateIndexApi() {
         CreateIndex<Resource> createIndex = new CreateIndex<>("laokou_res_1", "laokou_res", Resource.class);
+        CreateIndex<Project> createIndex2 = new CreateIndex<>("laokou_pro_1", "laokou_pro", Project.class);
         elasticsearchTemplate.createIndex(createIndex);
+        elasticsearchTemplate.createIndex(createIndex2);
     }
 
     @Test
     void testDeleteIndexApi() {
         DeleteIndex deleteIndex = new DeleteIndex("laokou_res_1", "laokou_res");
+        DeleteIndex deleteIndex2 = new DeleteIndex("laokou_pro_1", "laokou_pro");
         elasticsearchTemplate.deleteIndex(deleteIndex);
+        elasticsearchTemplate.deleteIndex(deleteIndex2);
     }
 
     @Data
@@ -62,6 +68,14 @@ class DemoEs8ApplicationTests {
         @Field(type = Type.TEXT, searchAnalyzer = "ik_smart", analyzer = "ik_pinyin")
         private String name;
 
+    }
+
+    @Data
+    @Index
+    static class Project {
+        @JsonSerialize(using = ToStringSerializer.class)
+        @Field(type = Type.LONG)
+        private Long businessKey;
     }
 
 }

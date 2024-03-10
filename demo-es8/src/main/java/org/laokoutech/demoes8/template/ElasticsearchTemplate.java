@@ -18,16 +18,10 @@
 package org.laokoutech.demoes8.template;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.elasticsearch._types.Time;
-import co.elastic.clients.elasticsearch._types.analysis.CharFilter;
 import co.elastic.clients.elasticsearch._types.analysis.TokenFilter;
-import co.elastic.clients.elasticsearch._types.analysis.TokenFilterDefinition;
 import co.elastic.clients.elasticsearch._types.mapping.DynamicMapping;
-import co.elastic.clients.elasticsearch._types.mapping.Property;
 import co.elastic.clients.elasticsearch._types.mapping.TypeMapping;
-import co.elastic.clients.elasticsearch.core.DeleteRequest;
 import co.elastic.clients.elasticsearch.indices.*;
-import co.elastic.clients.util.ObjectBuilder;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -37,14 +31,10 @@ import org.laokoutech.demoes8.model.DeleteIndex;
 import org.laokoutech.demoes8.utils.JacksonUtil;
 import org.laokoutech.demoes8.utils.StringUtil;
 import org.springframework.stereotype.Component;
-
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.Reader;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -109,7 +99,7 @@ public class ElasticsearchTemplate {
         String alias = document.getAlias();
         CreateIndexRequest.Builder createIndexbuilder = new CreateIndexRequest.Builder();
         if (StringUtil.isNotEmpty(alias)) {
-            // 写入别名
+            // 别名
             createIndexbuilder.aliases(alias, fn -> fn.isWriteIndex(true));
         }
         return createIndexbuilder

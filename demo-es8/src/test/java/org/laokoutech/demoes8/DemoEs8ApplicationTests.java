@@ -1,8 +1,11 @@
 package org.laokoutech.demoes8;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
+import org.laokoutech.demoes8.annotation.*;
+import org.laokoutech.demoes8.model.CreateIndex;
 import org.laokoutech.demoes8.template.ElasticsearchTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestConstructor;
@@ -29,7 +32,30 @@ class DemoEs8ApplicationTests {
 
     @Test
     void testCreateIndexApi() {
-        elasticsearchTemplate.createIndex();
+        CreateIndex<Resource> createIndex = new CreateIndex<>("laokou_res_1", "laokou_res", Resource.class);
+        elasticsearchTemplate.createIndex(createIndex);
+    }
+
+    @Data
+    @Index(analysis = @Analysis(filters = {
+            @Filter(option = {
+                      @Option(key = "type", value = "pinyin")
+                    , @Option(key = "keep_full_pinyin", value = "false")
+                    , @Option(key = "keep_joined_full_pinyin", value = "true")
+                    , @Option(key = "keep_original", value = "true")
+                    , @Option(key = "limit_first_letter_length", value = "16")
+                    , @Option(key = "remove_duplicated_term", value = "true")
+                    , @Option(key = "none_chinese_pinyin_tokenize", value = "false")
+            }),
+    }
+    , analyzers = {
+            @Analyzer(filter = "laokou_pinyin", tokenizer = "ik_max_word")
+    }))
+    static class Resource {
+
+        @Field(type = Type.TEXT, searchAnalyzer = "ik_smart", analyzer = "ik_pinyin")
+        private String name;
+
     }
 
 }

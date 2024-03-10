@@ -68,7 +68,13 @@ public class ElasticsearchTemplate {
 
     @SneakyThrows
     public void deleteIndex(DeleteIndex deleteIndex) {
-        DeleteIndexResponse deleteIndexResponse = elasticsearchClient.indices().delete(getDeleteIndex(deleteIndex));
+        // 判断索引是否存在
+        String name = deleteIndex.getName();
+        if (exist(List.of(name))) {
+            log.error("索引：{} -> 删除索引失败，索引不存在", name);
+            return;
+        }
+        DeleteIndexResponse deleteIndexResponse = elasticsearchClient.indices().delete(getDeleteIndex(name));
         boolean acknowledged = deleteIndexResponse.acknowledged();
         if (acknowledged) {
             log.error("索引：{} -> 删除索引成功", deleteIndex.getName());
@@ -88,9 +94,9 @@ public class ElasticsearchTemplate {
         return existBuilder.build();
     }
 
-    private DeleteIndexRequest getDeleteIndex(DeleteIndex deleteIndex) {
+    private DeleteIndexRequest getDeleteIndex(String name) {
         DeleteIndexRequest.Builder deleteIndexBuilder = new DeleteIndexRequest.Builder();
-        deleteIndexBuilder.index(deleteIndex.getName());
+        deleteIndexBuilder.index(name);
         return deleteIndexBuilder.build();
     }
 

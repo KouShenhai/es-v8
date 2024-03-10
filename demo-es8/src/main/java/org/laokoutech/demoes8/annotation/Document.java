@@ -39,35 +39,63 @@ public class Document {
     private Analysis analysis;
 
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Mapping {
         private String field;
-        private String type;
+        private Type type;
         private String searchAnalyzer;
         private String analyzer;
+        private boolean fielddata;
+        private boolean eagerGlobalOrdinals;
     }
 
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Setting {
         private short shards;
         private short replicas;
     }
 
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Analysis {
-        private List<Option> filters;
+        private List<Filter> filters;
         private List<Analyzer> analyzers;
     }
 
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Filter {
+        private String name;
+        private List<Option> options;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Args {
+        private String filter;
+        private String tokenizer;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Option {
         private String key;
         private String value;
     }
 
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Analyzer {
-        private String filter;
-        private String tokenizer;
+        private String name;
+        private Args args;
     }
 
 }

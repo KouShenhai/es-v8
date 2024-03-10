@@ -18,6 +18,7 @@ package org.laokoutech.demoes8.annotation;
 
 public @interface Filter {
 
-    Option[] option() default {};
+    String name();
+    Option[] options();
 
 }

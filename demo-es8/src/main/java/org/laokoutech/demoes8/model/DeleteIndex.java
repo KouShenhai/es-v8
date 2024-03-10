@@ -14,11 +14,22 @@
  * limitations under the License.
  *
  */
-package org.laokoutech.demoes8.annotation;
 
-public @interface Analyzer {
+package org.laokoutech.demoes8.model;
 
-    String name();
-    Args args();
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+/**
+ * @author laokou
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class DeleteIndex {
+
+    private String name;
+    private String alias;
 
 }

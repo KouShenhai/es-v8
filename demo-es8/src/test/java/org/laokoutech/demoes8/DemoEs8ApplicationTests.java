@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 import org.laokoutech.demoes8.annotation.*;
 import org.laokoutech.demoes8.model.CreateIndex;
+import org.laokoutech.demoes8.model.DeleteIndex;
 import org.laokoutech.demoes8.template.ElasticsearchTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestConstructor;
@@ -36,10 +37,15 @@ class DemoEs8ApplicationTests {
         elasticsearchTemplate.createIndex(createIndex);
     }
 
+    @Test
+    void testDeleteIndexApi() {
+        DeleteIndex deleteIndex = new DeleteIndex("laokou_res_1", "laokou_res");
+        elasticsearchTemplate.deleteIndex(deleteIndex);
+    }
+
     @Data
     @Index(analysis = @Analysis(filters = {
-            @Filter(option = {
-                      @Option(key = "type", value = "pinyin")
+            @Filter(name = "laokou_pinyin",options = { @Option(key = "type", value = "pinyin")
                     , @Option(key = "keep_full_pinyin", value = "false")
                     , @Option(key = "keep_joined_full_pinyin", value = "true")
                     , @Option(key = "keep_original", value = "true")
@@ -49,7 +55,7 @@ class DemoEs8ApplicationTests {
             }),
     }
     , analyzers = {
-            @Analyzer(filter = "laokou_pinyin", tokenizer = "ik_max_word")
+            @Analyzer(name = "ik_pinyin", args = @Args(filter = "laokou_pinyin", tokenizer = "ik_max_word"))
     }))
     static class Resource {
 

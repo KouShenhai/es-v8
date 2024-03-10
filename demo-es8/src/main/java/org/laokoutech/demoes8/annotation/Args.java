@@ -16,9 +16,9 @@
  */
 package org.laokoutech.demoes8.annotation;
 
-public @interface Analyzer {
+public @interface Args {
 
-    String name();
-    Args args();
+    String filter();
+    String tokenizer();
 
 }

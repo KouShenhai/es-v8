@@ -21,13 +21,12 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.analysis.TokenFilter;
 import co.elastic.clients.elasticsearch._types.mapping.DynamicMapping;
 import co.elastic.clients.elasticsearch._types.mapping.TypeMapping;
+import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.indices.*;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.laokoutech.demoes8.annotation.*;
-import org.laokoutech.demoes8.model.CreateIndex;
-import org.laokoutech.demoes8.model.DeleteIndex;
 import org.laokoutech.demoes8.utils.JacksonUtil;
 import org.laokoutech.demoes8.utils.StringUtil;
 import org.springframework.stereotype.Component;
@@ -35,6 +34,7 @@ import java.io.ByteArrayInputStream;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
@@ -45,18 +45,21 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ElasticsearchTemplate {
 
+    private static final String HIGHLIGHT_PRE_TAGS = "<font color='red'>";
+
+    private static final String HIGHLIGHT_POST_TAGS = "</font>";
+
     private final ElasticsearchClient elasticsearchClient;
 
     @SneakyThrows
-    public <TDocument> void createIndex(CreateIndex<TDocument> createIndex) {
+    public <TDocument> void createIndex(String name,String alias,Class<TDocument> clazz) {
         // 判断索引是否存在
-        String name = createIndex.getName();
         if (exist(List.of(name))) {
             log.error("索引：{} -> 创建索引失败，索引已存在", name);
             return;
         }
-        Document document = convert(createIndex);
-        CreateIndexResponse createIndexResponse = elasticsearchClient.indices().create(getCreateIndex(document));
+        Document document = convert(name, alias, clazz);
+        CreateIndexResponse createIndexResponse = elasticsearchClient.indices().create(getCreateIndexRequest(document));
         boolean acknowledged = createIndexResponse.acknowledged();
         if (acknowledged) {
             log.info("索引：{} -> 创建索引成功", name);
@@ -67,25 +70,55 @@ public class ElasticsearchTemplate {
     }
 
     @SneakyThrows
-    public void deleteIndex(DeleteIndex deleteIndex) {
-        // 判断索引是否存在
-        String name = deleteIndex.getName();
-        if (!exist(List.of(name))) {
-            log.error("索引：{} -> 删除索引失败，索引不存在", name);
+    public void deleteIndex(List<String> names) {
+        if (!exist(names)) {
+            log.error("索引：{} -> 删除索引失败，索引不存在", StringUtil.collectionToDelimitedString(names, ","));
             return;
         }
-        DeleteIndexResponse deleteIndexResponse = elasticsearchClient.indices().delete(getDeleteIndex(name));
+        DeleteIndexResponse deleteIndexResponse = elasticsearchClient.indices().delete(getDeleteIndexRequest(names));
         boolean acknowledged = deleteIndexResponse.acknowledged();
         if (acknowledged) {
-            log.error("索引：{} -> 删除索引成功", deleteIndex.getName());
+            log.info("索引：{} -> 删除索引成功", StringUtil.collectionToDelimitedString(names, ","));
         } else {
-            log.error("索引：{} -> 删除索引失败", deleteIndex.getName());
+            log.error("索引：{} -> 删除索引失败", StringUtil.collectionToDelimitedString(names, ","));
         }
     }
 
     @SneakyThrows
-    private boolean exist(List<String> names) {
+    public Map<String, IndexState> getIndex(List<String> names) {
+        return elasticsearchClient.indices().get(getIndexRequest(names)).result();
+    }
+
+    @SneakyThrows
+    public void createDocument(String index, String id, Object obj) {
+        elasticsearchClient.index(idx -> idx.index(index).id(id).document(obj));
+    }
+
+    @SneakyThrows
+    public void bulkCreateDocument(String index, List<String> ids, List<Object> objs) {
+        List<BulkOperation> bulkOperations = getBulkOperations(ids, objs);
+        boolean errors = elasticsearchClient.bulk(bulk -> bulk.index(index).operations(bulkOperations)).errors();
+        if (errors) {
+            log.error("索引：{} -> 批量同步索引失败", index);
+
+        } else {
+            log.info("索引：{} -> 批量同步索引成功", index);
+        }
+    }
+
+    @SneakyThrows
+    public boolean exist(List<String> names) {
         return elasticsearchClient.indices().exists(getExists(names)).value();
+    }
+
+    private List<BulkOperation> getBulkOperations(List<String> ids, List<Object> objs) {
+        List<BulkOperation> bulkOperations = new ArrayList<>(objs.size());
+        AtomicInteger atomic = new AtomicInteger(-1);
+        objs.forEach(item -> {
+            int index = atomic.incrementAndGet();
+            bulkOperations.add(BulkOperation.of(idx -> idx.index(fn -> fn.id(ids.get(index)).document(objs.get(index)))));
+        });
+        return bulkOperations;
     }
 
     private ExistsRequest getExists(List<String> names) {
@@ -94,13 +127,19 @@ public class ElasticsearchTemplate {
         return existBuilder.build();
     }
 
-    private DeleteIndexRequest getDeleteIndex(String name) {
+    private GetIndexRequest getIndexRequest(List<String> names) {
+        GetIndexRequest.Builder getIndexbuilder = new GetIndexRequest.Builder();
+        getIndexbuilder.index(names);
+        return getIndexbuilder.build();
+    }
+
+    private DeleteIndexRequest getDeleteIndexRequest(List<String> names) {
         DeleteIndexRequest.Builder deleteIndexBuilder = new DeleteIndexRequest.Builder();
-        deleteIndexBuilder.index(name);
+        deleteIndexBuilder.index(names);
         return deleteIndexBuilder.build();
     }
 
-    private CreateIndexRequest getCreateIndex(Document document) {
+    private CreateIndexRequest getCreateIndexRequest(Document document) {
         String name = document.getName();
         String alias = document.getAlias();
         CreateIndexRequest.Builder createIndexbuilder = new CreateIndexRequest.Builder();
@@ -163,21 +202,20 @@ public class ElasticsearchTemplate {
         String searchAnalyzer = mapping.getSearchAnalyzer();
         boolean eagerGlobalOrdinals = mapping.isEagerGlobalOrdinals();
         switch (type) {
-            case TEXT -> mappingBuilder.properties(field, fn -> fn.text(t -> t.fielddata(fielddata).eagerGlobalOrdinals(eagerGlobalOrdinals).searchAnalyzer(searchAnalyzer).analyzer(analyzer)));
+            case TEXT -> mappingBuilder.properties(field, fn -> fn.text(t -> t.index(true).fielddata(fielddata).eagerGlobalOrdinals(eagerGlobalOrdinals).searchAnalyzer(searchAnalyzer).analyzer(analyzer)));
             case KEYWORD -> mappingBuilder.properties(field, fn -> fn.keyword(t -> t.eagerGlobalOrdinals(eagerGlobalOrdinals)));
             case LONG -> mappingBuilder.properties(field, fn -> fn.long_(t -> t));
             default -> {}
         }
     }
 
-    private <TDocument> Document convert(CreateIndex<TDocument> createIndex) {
-        Class<TDocument> clazz = createIndex.getClazz();
+    private <TDocument> Document convert(String name,String alias,Class<TDocument> clazz) {
         boolean annotationPresent = clazz.isAnnotationPresent(Index.class);
         if (annotationPresent) {
             Index index = clazz.getAnnotation(Index.class);
             return Document.builder()
-                    .name(createIndex.getName())
-                    .alias(createIndex.getAlias())
+                    .name(name)
+                    .alias(alias)
                     .mappings(getMappings(clazz))
                     .setting(getSetting(index))
                     .analysis(getAnalysis(index))

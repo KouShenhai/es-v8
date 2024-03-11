@@ -1,17 +1,23 @@
 package org.laokoutech.demoes8;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch.indices.IndexState;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 import org.laokoutech.demoes8.annotation.*;
-import org.laokoutech.demoes8.model.CreateIndex;
-import org.laokoutech.demoes8.model.DeleteIndex;
 import org.laokoutech.demoes8.template.ElasticsearchTemplate;
+import org.laokoutech.demoes8.utils.JacksonUtil;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestConstructor;
+
+import java.util.List;
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @Slf4j
@@ -35,18 +41,29 @@ class DemoEs8ApplicationTests {
 
     @Test
     void testCreateIndexApi() {
-        CreateIndex<Resource> createIndex = new CreateIndex<>("laokou_res_1", "laokou_res", Resource.class);
-        CreateIndex<Project> createIndex2 = new CreateIndex<>("laokou_pro_1", "laokou_pro", Project.class);
-        elasticsearchTemplate.createIndex(createIndex);
-        elasticsearchTemplate.createIndex(createIndex2);
+        elasticsearchTemplate.createIndex("laokou_res_1", "laokou_res", Resource.class);
+        elasticsearchTemplate.createIndex("laokou_pro_1", "laokou_pro", Project.class);
+        testBulkCreateDocumentApi();
     }
 
     @Test
-    void testDeleteIndexApi() {
-        DeleteIndex deleteIndex = new DeleteIndex("laokou_res_1", "laokou_res");
-        DeleteIndex deleteIndex2 = new DeleteIndex("laokou_pro_1", "laokou_pro");
-        elasticsearchTemplate.deleteIndex(deleteIndex);
-        elasticsearchTemplate.deleteIndex(deleteIndex2);
+    void testCreateDocumentApi() {
+        elasticsearchTemplate.createDocument("laokou_res_1","222", new Resource("3333"));
+    }
+
+    private void testBulkCreateDocumentApi() {
+        elasticsearchTemplate.bulkCreateDocument("laokou_res_1",List.of("333"), List.of(new Resource("5555")));
+    }
+
+    @Test
+    void testGetIndexApi() {
+        Map<String, IndexState> result = elasticsearchTemplate.getIndex(List.of("laokou_res_1", "laokou_pro_1"));
+        log.info("索引信息：{}", JacksonUtil.toJsonStr(result));
+        testDeleteIndexApi();
+    }
+
+    private void testDeleteIndexApi() {
+        elasticsearchTemplate.deleteIndex(List.of("laokou_res_1", "laokou_pro_1"));
     }
 
     @Data
@@ -63,6 +80,8 @@ class DemoEs8ApplicationTests {
     , analyzers = {
             @Analyzer(name = "ik_pinyin", args = @Args(filter = "laokou_pinyin", tokenizer = "ik_max_word"))
     }))
+    @NoArgsConstructor
+    @AllArgsConstructor
     static class Resource {
 
         @Field(type = Type.TEXT, searchAnalyzer = "ik_smart", analyzer = "ik_pinyin")

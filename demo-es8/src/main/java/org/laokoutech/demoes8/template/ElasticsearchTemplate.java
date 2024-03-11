@@ -95,9 +95,8 @@ public class ElasticsearchTemplate {
     }
 
     @SneakyThrows
-    public void bulkCreateDocument(String index, List<String> ids, List<Object> objs) {
-        List<BulkOperation> bulkOperations = getBulkOperations(ids, objs);
-        boolean errors = elasticsearchClient.bulk(bulk -> bulk.index(index).operations(bulkOperations)).errors();
+    public void bulkCreateDocument(String index, Map<String, Object> map) {
+        boolean errors = elasticsearchClient.bulk(bulk -> bulk.index(index).operations(getBulkOperations(map))).errors();
         if (errors) {
             log.error("索引：{} -> 批量同步索引失败", index);
 
@@ -111,14 +110,8 @@ public class ElasticsearchTemplate {
         return elasticsearchClient.indices().exists(getExists(names)).value();
     }
 
-    private List<BulkOperation> getBulkOperations(List<String> ids, List<Object> objs) {
-        List<BulkOperation> bulkOperations = new ArrayList<>(objs.size());
-        AtomicInteger atomic = new AtomicInteger(-1);
-        objs.forEach(item -> {
-            int index = atomic.incrementAndGet();
-            bulkOperations.add(BulkOperation.of(idx -> idx.index(fn -> fn.id(ids.get(index)).document(objs.get(index)))));
-        });
-        return bulkOperations;
+    private List<BulkOperation> getBulkOperations(Map<String, Object> map) {
+        return map.entrySet().stream().map(entry -> BulkOperation.of(idx -> idx.index(fn -> fn.id(entry.getKey()).document(entry.getValue())))).toList();
     }
 
     private ExistsRequest getExists(List<String> names) {

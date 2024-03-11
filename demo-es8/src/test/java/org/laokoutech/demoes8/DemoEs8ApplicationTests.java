@@ -52,7 +52,7 @@ class DemoEs8ApplicationTests {
     }
 
     private void testBulkCreateDocumentApi() {
-        elasticsearchTemplate.bulkCreateDocument("laokou_res_1",List.of("333"), List.of(new Resource("5555")));
+        elasticsearchTemplate.bulkCreateDocument("laokou_res_1",Map.of("333",new Resource("5555")));
     }
 
     @Test

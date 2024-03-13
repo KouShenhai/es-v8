@@ -16,11 +16,13 @@
  */
 
 package org.laokoutech.demoes8.template;
-
+import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch._types.analysis.TokenFilter;
 import co.elastic.clients.elasticsearch._types.mapping.DynamicMapping;
 import co.elastic.clients.elasticsearch._types.mapping.TypeMapping;
+import co.elastic.clients.elasticsearch.core.IndexResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.indices.*;
 import lombok.RequiredArgsConstructor;
@@ -34,7 +36,7 @@ import java.io.ByteArrayInputStream;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
@@ -50,6 +52,7 @@ public class ElasticsearchTemplate {
     private static final String HIGHLIGHT_POST_TAGS = "</font>";
 
     private final ElasticsearchClient elasticsearchClient;
+    private final ElasticsearchAsyncClient elasticsearchAsyncClient;
 
     @SneakyThrows
     public <TDocument> void createIndex(String name,String alias,Class<TDocument> clazz) {
@@ -91,18 +94,50 @@ public class ElasticsearchTemplate {
 
     @SneakyThrows
     public void createDocument(String index, String id, Object obj) {
-        elasticsearchClient.index(idx -> idx.index(index).id(id).document(obj));
+        IndexResponse response = elasticsearchClient.index(idx -> idx.index(index).refresh(Refresh.True).id(id).document(obj));
+        if (StringUtil.isNotEmpty(response.result().jsonValue())) {
+            log.info("索引：{} -> 同步索引成功", index);
+        } else {
+            log.error("索引：{} -> 同步索引失败", index);
+        }
+    }
+
+    @SneakyThrows
+    public CompletableFuture<Boolean> asyncCreateDocument(String index, String id, Object obj) {
+        return elasticsearchAsyncClient.index(idx -> idx.index(index).refresh(Refresh.True).id(id).document(obj))
+                .thenApplyAsync(resp -> {
+                    if(StringUtil.isNotEmpty(resp.result().jsonValue())) {
+                        log.info("索引：{} -> 异步同步索引成功", index);
+                        return Boolean.TRUE;
+                    } else {
+                        log.error("索引：{} -> 异步同步索引失败", index);
+                        return Boolean.FALSE;
+                    }
+                });
     }
 
     @SneakyThrows
     public void bulkCreateDocument(String index, Map<String, Object> map) {
-        boolean errors = elasticsearchClient.bulk(bulk -> bulk.index(index).operations(getBulkOperations(map))).errors();
+        boolean errors = elasticsearchClient.bulk(bulk -> bulk.index(index).refresh(Refresh.True).operations(getBulkOperations(map))).errors();
         if (errors) {
             log.error("索引：{} -> 批量同步索引失败", index);
-
         } else {
             log.info("索引：{} -> 批量同步索引成功", index);
         }
+    }
+
+    @SneakyThrows
+    public CompletableFuture<Boolean> asyncBulkCreateDocument(String index, Map<String, Object> map) {
+        return elasticsearchAsyncClient.bulk(bulk -> bulk.index(index).refresh(Refresh.True).operations(getBulkOperations(map)))
+                .thenApplyAsync(resp -> {
+                    if (resp.errors()) {
+                        log.error("索引：{} -> 异步批量同步索引失败", index);
+                        return Boolean.FALSE;
+                    } else {
+                        log.info("索引：{} -> 异步批量同步索引成功", index);
+                        return Boolean.TRUE;
+                    }
+                });
     }
 
     @SneakyThrows
@@ -152,6 +187,7 @@ public class ElasticsearchTemplate {
         IndexSettings.Builder settingBuilder = new IndexSettings.Builder();
         settingBuilder.numberOfShards(String.valueOf(setting.getShards()));
         settingBuilder.numberOfReplicas(String.valueOf(setting.getReplicas()));
+        settingBuilder.refreshInterval(fn -> fn.time(setting.getRefreshInterval()));
         settingBuilder.analysis(getAnalysisBuilder(document));
         return settingBuilder.build();
     }
@@ -248,7 +284,7 @@ public class ElasticsearchTemplate {
 
     private Document.Setting getSetting(Index index) {
         Setting setting = index.setting();
-        return new Document.Setting(setting.shards(), setting.replicas());
+        return new Document.Setting(setting.shards(), setting.replicas(), setting.refreshInterval());
     }
 
     private <TDocument> List<Document.Mapping> getMappings(Class<TDocument> clazz) {

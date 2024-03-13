@@ -14,11 +14,13 @@
  * limitations under the License.
  *
  */
+
 package org.laokoutech.demoes8.annotation;
 
 public  @interface Setting {
 
     short shards() default 1;
     short replicas() default 1;
+    String refreshInterval() default "1s";
 
 }

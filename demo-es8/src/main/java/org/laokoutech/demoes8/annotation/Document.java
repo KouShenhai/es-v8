@@ -56,6 +56,7 @@ public class Document {
     public static class Setting {
         private short shards;
         private short replicas;
+        private String refreshInterval;
     }
 
     @Data

@@ -17,6 +17,7 @@
 
 package org.laokoutech.demoes8.config.auto;
 
+import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
@@ -348,7 +349,18 @@ class ElasticsearchAutoConfig {
      @ConditionalOnMissingBean(ElasticsearchClient.class)
      @ConditionalOnClass(RestClientBuilder.class)
      ElasticsearchClient elasticsearchClient(RestClientBuilder elasticsearchRestClientBuilder) {
-         ElasticsearchTransport transport = new RestClientTransport(elasticsearchRestClientBuilder.build(), new JacksonJsonpMapper());
-         return new ElasticsearchClient(transport);
+         return new ElasticsearchClient(getTransport(elasticsearchRestClientBuilder));
      }
+
+    @Bean(name = "elasticsearchAsyncClient",destroyMethod = "shutdown")
+    @ConditionalOnMissingBean(ElasticsearchAsyncClient.class)
+    @ConditionalOnClass(RestClientBuilder.class)
+    ElasticsearchAsyncClient elasticsearchAsyncClient(RestClientBuilder elasticsearchRestClientBuilder) {
+        return new ElasticsearchAsyncClient(getTransport(elasticsearchRestClientBuilder));
+    }
+
+    private ElasticsearchTransport getTransport(RestClientBuilder elasticsearchRestClientBuilder) {
+        return new RestClientTransport(elasticsearchRestClientBuilder.build(), new JacksonJsonpMapper());
+    }
+    
 }

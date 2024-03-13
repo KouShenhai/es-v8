@@ -49,6 +49,7 @@ class DemoEs8ApplicationTests {
     void testCreateIndexApi() {
         elasticsearchTemplate.createIndex("laokou_res_1", "laokou_res", Resource.class);
         elasticsearchTemplate.createIndex("laokou_pro_1", "laokou_pro", Project.class);
+        elasticsearchTemplate.asyncCreateIndex("laokou_resp_1", "laokou_test", Resp.class);
     }
 
     @Test
@@ -112,6 +113,13 @@ class DemoEs8ApplicationTests {
         @JsonSerialize(using = ToStringSerializer.class)
         @Field(type = Type.LONG)
         private Long businessKey;
+    }
+
+    @Data
+    @Index
+    static class Resp implements Serializable{
+        @Field(type = Type.KEYWORD)
+        private String key;
     }
 
 }

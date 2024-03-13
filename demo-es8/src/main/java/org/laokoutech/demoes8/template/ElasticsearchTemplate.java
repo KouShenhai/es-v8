@@ -25,6 +25,7 @@ import co.elastic.clients.elasticsearch._types.mapping.TypeMapping;
 import co.elastic.clients.elasticsearch.core.IndexResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.indices.*;
+import co.elastic.clients.transport.endpoints.BooleanResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -52,7 +53,33 @@ public class ElasticsearchTemplate {
     private static final String HIGHLIGHT_POST_TAGS = "</font>";
 
     private final ElasticsearchClient elasticsearchClient;
+
     private final ElasticsearchAsyncClient elasticsearchAsyncClient;
+
+    @SneakyThrows
+    public <TDocument> CompletableFuture<Boolean> asyncCreateIndex(String name,String alias,Class<TDocument> clazz) {
+        return asyncExist(List.of(name)).thenApplyAsync(resp -> {
+            if (resp) {
+                log.error("索引：{} -> 创建索引失败，索引已存在", name);
+                return Boolean.FALSE;
+            }
+            return Boolean.TRUE;
+        }).thenApplyAsync(resp -> {
+            if (resp) {
+                Document document = convert(name, alias, clazz);
+                elasticsearchAsyncClient.indices().create(getCreateIndexRequest(document)).thenApplyAsync(response -> {
+                    if (response.acknowledged()) {
+                        log.info("索引：{} -> 创建索引成功", name);
+                        return Boolean.TRUE;
+                    } else {
+                        log.error("索引：{} -> 创建索引失败", name);
+                        return Boolean.FALSE;
+                    }
+                });
+            }
+            return Boolean.FALSE;
+        });
+    }
 
     @SneakyThrows
     public <TDocument> void createIndex(String name,String alias,Class<TDocument> clazz) {
@@ -143,6 +170,10 @@ public class ElasticsearchTemplate {
     @SneakyThrows
     public boolean exist(List<String> names) {
         return elasticsearchClient.indices().exists(getExists(names)).value();
+    }
+
+    public CompletableFuture<Boolean> asyncExist(List<String> names) {
+        return elasticsearchAsyncClient.indices().exists(getExists(names)).thenApplyAsync(BooleanResponse::value);
     }
 
     private List<BulkOperation> getBulkOperations(Map<String, Object> map) {
